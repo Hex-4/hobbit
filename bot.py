@@ -2,15 +2,21 @@ import discord
 import os # default module
 from dotenv import load_dotenv
 from tinydb import TinyDB, Query
+from datetime import datetime, time, timedelta, timezone
+from discord.ext import tasks
 
 load_dotenv() # load all the variables from the env file
-bot = discord.Bot()
+bot = discord.Bot(intents=discord.Intents.all())
 db = TinyDB('db.json')
 lookup = Query()
+
+unconfirmed_scheduled_message = None
+scheduled_messages = []
 
 @bot.event
 async def on_ready():
     print(f"{bot.user} is ready and online!")
+    send_scheduled_messages.start()
     
 
 @bot.slash_command(name="hello", description="Say hello to the bot")
@@ -93,6 +99,41 @@ async def flavor(ctx: discord.ApplicationContext):
         await ctx.respond(view=Shop(), embed=embed)
     else:
         await ctx.respond(f"{ctx.author.mention} has not joined the Merit system! Run `/start` to join.")
+
+@bot.event
+async def on_reaction_add(reaction, user):
+    global unconfirmed_scheduled_message
+    print("reaction!")
+    if user.id == 1043961200662286347 or user.id == 846855157681881118:
+        if reaction.emoji == "🔜":
+            print(reaction.message)
+            unconfirmed_scheduled_message = reaction.message
+            await reaction.message.channel.send("Confirm message schedule? It'll send at the next 8:00 AM mountain time.",view=Schedule_Confirm())
+
+class Schedule_Confirm(discord.ui.View):
+    @discord.ui.button(label="Yeah!", style=discord.ButtonStyle.green, emoji="<:checkmark:1313714877772337233>")
+    async def button_callback(self, button, interaction):
+        button.disabled = True
+        print(unconfirmed_scheduled_message)
+        scheduled_messages.append(unconfirmed_scheduled_message)
+        print(scheduled_messages)
+        await interaction.response.edit_message(view=self) # edit the message to show the changes
+        await interaction.followup.send("<:Checkmark:1313714877772337233> All done!")
+
+
+
+
+@tasks.loop(time=time(hour=15))
+async def send_scheduled_messages():
+    print("sending scheduled messages!")
+    events = bot.get_channel(1313658666918084678)
+    for m in scheduled_messages:
+        if m.attachments:
+            file = await m.attachments[0].to_file()
+            await events.send(f"{m.content}", file=file)
+        else:
+            await events.send(f"{m.content}")
+        scheduled_messages.remove(m)
     
 
 bot.run(os.getenv('TOKEN')) # run the bot with the token
