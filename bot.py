@@ -18,6 +18,11 @@ unconfirmed_scheduled_message = None
 scheduled_messages = []
 shop_options = []
 
+def find_id(id):
+    global market_data
+    for i in market_data:
+        if i["id"] == id:
+            return i
 
 
 @bot.event
@@ -83,27 +88,61 @@ class Shop(discord.ui.View):
         )
         self.select_menu.callback = self.select_callback
         self.add_item(self.select_menu)
-    async def select_callback(self, interaction):  
+    async def select_callback(self, interaction): 
+        global market_data 
+        
         choice = self.select_menu.values[0]
+        choice = find_id(choice)
         self.select_menu.disabled = True # set the status of the select as disabled 
         user_merits = db.search(lookup.id == interaction.user.id)[0].get('merits')
 
 
 
+
         await interaction.response.edit_message(view=self) # edit the message to show the changes
         
-        if user_merits < market_data[choice]["price"]:
-            await interaction.followup.send(f"You don't have enough <:Merit:1312943394854670398> Merits to buy {market_data[choice]['name']}!")
+        if user_merits < choice["price"]:
+            await interaction.followup.send(f"You don't have enough <:Merit:1312943394854670398> Merits to buy {choice['name']}!")
         else:
-            await interaction.followup.send(f"Are you sure? This will cost you <:Merit:1312943394854670398> {market_data[choice]["price"]}, leaving you with <:Merit:1312943394854670398> {user_merits - market_data[choice]["price"]}", view=Confirmation())  # Send a new message
+            await interaction.followup.send(f"Are you sure? This will cost you <:Merit:1312943394854670398> {choice["price"]}, leaving you with <:Merit:1312943394854670398> {user_merits - choice["price"]}.", view=Confirmation(choice))  # Send a new message
     
 
 class Confirmation(discord.ui.View): # Create a class called MyView that subclasses discord.ui.View
+    def __init__(self, choice):
+        super().__init__()
+        self.choice = choice
     @discord.ui.button(label="Yeah!", style=discord.ButtonStyle.green, emoji="<:checkmark:1313714877772337233>")
-    async def button_callback(self, button, interaction):
-        button.disabled = True
+    async def yes_button_callback(self, button, interaction):
+        self.disable_all_items()
         await interaction.response.edit_message(view=self)
-        await interaction.followup.send("All done!") # Send a message when the button is clicked
+        msg = await fufill_order(interaction.user, self.choice)
+        await interaction.followup.send(msg) # Send a message when the button is clicked
+    @discord.ui.button(label="No, cancel!", style=discord.ButtonStyle.red, emoji="<:decline:1313715699675566120>")
+    async def button_callback(self, button, interaction):
+        self.disable_all_items()
+        await interaction.response.edit_message(view=self)
+
+        await interaction.followup.send("Cancelled.") # Send a message when the button is clicked
+
+async def fufill_order(user: discord.Member, item):
+    try:
+        if item["type"] == "role":
+            await user.add_roles(user.guild.get_role(1315010071410769961))
+            db.update({'merits': db.search(lookup.id == user.id)[0].get('merits') - item["price"]}, lookup.id == user.id)
+            return f"<:checkmark:1313714877772337233> All done! Your role has been granted."
+        else:
+            orders = bot.get_channel(1315012080553693195)
+            await orders.send(f"🚨 NEW ORDER ALERT 🚨\n{user.name} has ordered:\n{item["name"]}")
+            db.update({'merits': db.search(lookup.id == user.id)[0].get('merits') - item["price"]}, lookup.id == user.id)
+            return f"<:checkmark:1313714877772337233> All done! We've got your order, you'll get it soon!"
+        
+    except Exception as e:
+        print(e)
+        return f"<:decline:1313715699675566120> Something went wrong! Please notify hex4, and tell him this is the error:\n```{e}```"
+
+
+
+
 
 @bot.command(name="market", description="Buy something with your Merits!")
 async def flavor(ctx: discord.ApplicationContext):

@@ -5,7 +5,8 @@
             "type": "role",
             "name": "@Sigma (Purple)",
             "price": 100,
-            "description": "Stylish"
+            "description": "Stylish!",
+            "role": 1315010071410769961
         },
         {
             "id": "hug",
