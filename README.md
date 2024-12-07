@@ -12,7 +12,11 @@ Hobbit is a homemade multipurpose discord bot for a server me and my friends hav
 > [!WARNING]  
 > Hobbit, first and foremost, is a discord bot for *our* server. Your are more than welcome to modify this bot for your own needs, but I will probably not be accepting feature requests or PRs.
 >
-> And yes, our discord server is invite only. 
+> And yes, our discord server is invite only.
+
+AI was used:
+- Codeium autocompletion in `bot.py`
+- ChatGPT was used for debugging some issues
 
 ## Features
 
